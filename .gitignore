@@ -1,3 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+credentials.json
+models/
+*.whl
+.DS_Store

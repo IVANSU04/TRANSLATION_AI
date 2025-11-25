@@ -1,5 +1,22 @@
 streamlit==1.35.0
 openai==1.30.0
 httpx==0.27.2
+
+# Web version: Keep speech_recognition for backward compatibility
+# (Only for Python 3.8-3.12, skip if using Python 3.13+)
 SpeechRecognition==3.10.4
-PyAudio==0.2.14
+# PyAudio requires manual installation on Windows via .whl file
+# PyAudio==0.2.14
+
+# Desktop GUI dependencies (Python 3.13+ compatible)
+# Use PySide6 6.8+ for Python 3.13+ support
+PySide6>=6.8.0
+
+# TTS for desktop app
+pyttsx3==2.90
+
+# FREE Speech Recognition for Desktop GUI (works on all Python versions)
+# Completely offline, no network required
+vosk>=0.3.45
+# PyAudio for microphone input (same as above, manual install on Windows)
+# pyaudio
