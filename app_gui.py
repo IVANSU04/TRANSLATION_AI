@@ -14,13 +14,13 @@ import tempfile
 # Try to import Qt framework (prefer PyQt6, fallback to PySide6)
 QT_FRAMEWORK = None
 try:
-    from PyQt6.QtWidgets import (
+    from PyQt6.QtWidgets import ( # type: ignore
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QTextEdit, QPushButton, QComboBox, QGroupBox,
         QSplitter, QStatusBar, QMessageBox, QTabWidget, QProgressBar, QScrollArea
     )
-    from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
-    from PyQt6.QtGui import QFont, QIcon, QTextCursor
+    from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal # type: ignore
+    from PyQt6.QtGui import QFont, QIcon, QTextCursor, QPalette, QColor # type: ignore
     QT_FRAMEWORK = "PyQt6"
 except ImportError:
     try:
@@ -30,7 +30,7 @@ except ImportError:
             QSplitter, QStatusBar, QMessageBox, QTabWidget, QProgressBar, QScrollArea
         )
         from PySide6.QtCore import Qt, QThread, Signal
-        from PySide6.QtGui import QFont, QIcon, QTextCursor
+        from PySide6.QtGui import QFont, QIcon, QTextCursor, QPalette, QColor
         QT_FRAMEWORK = "PySide6"
     except ImportError:
         print("=" * 60)
@@ -91,6 +91,9 @@ TRANSLATIONS = {
         "voice_failed": "语音输入失败",
         "tts_error": "TTS 错误",
         "basic_features": "基础功能",
+        "theme_label": "主题:",
+        "theme_light": "☀️ 浅色",
+        "theme_dark": "🌙 深色",
     },
     "zh-TW": {  # 繁体中文
         "app_title": "跨文化智能翻譯助手 - 桌面版",
@@ -133,6 +136,9 @@ TRANSLATIONS = {
         "voice_failed": "語音輸入失敗",
         "tts_error": "TTS 錯誤",
         "basic_features": "基礎功能",
+        "theme_label": "主題:",
+        "theme_light": "☀️ 淺色",
+        "theme_dark": "🌙 深色",
     },
     "en": {  # English
         "app_title": "Cross-Cultural Translation Assistant - Desktop",
@@ -175,6 +181,9 @@ TRANSLATIONS = {
         "voice_failed": "Voice input failed",
         "tts_error": "TTS Error",
         "basic_features": "Basic Features",
+        "theme_label": "Theme:",
+        "theme_light": "☀️ Light",
+        "theme_dark": "🌙 Dark",
     },
     "ja": {  # 日本語
         "app_title": "異文化翻訳アシスタント - デスクトップ版",
@@ -217,6 +226,9 @@ TRANSLATIONS = {
         "voice_failed": "音声入力失敗",
         "tts_error": "TTS エラー",
         "basic_features": "基本機能",
+        "theme_label": "テーマ:",
+        "theme_light": "☀️ ライト",
+        "theme_dark": "🌙 ダーク",
     },
     "es": {  # Español
         "app_title": "Asistente de Traducción Intercultural - Escritorio",
@@ -259,6 +271,9 @@ TRANSLATIONS = {
         "voice_failed": "Entrada de voz fallida",
         "tts_error": "Error TTS",
         "basic_features": "Funciones Básicas",
+        "theme_label": "Tema:",
+        "theme_light": "☀️ Claro",
+        "theme_dark": "🌙 Oscuro",
     },
     "fr": {  # Français
         "app_title": "Assistant de Traduction Interculturelle - Bureau",
@@ -299,8 +314,11 @@ TRANSLATIONS = {
         "voice_input_title": "Entrée Vocale",
         "voice_recognizing": "✅ Reconnaissance vocale terminée",
         "voice_failed": "Entrée vocale échouée",
-        "tts_error": "TTS-Fehler",
-        "basic_features": "Grundfunktionen",
+        "tts_error": "Erreur TTS",
+        "basic_features": "Fonctions de Base",
+        "theme_label": "Thème:",
+        "theme_light": "☀️ Clair",
+        "theme_dark": "🌙 Sombre",
     },
     "de": {  # Deutsch
         "app_title": "Interkultureller Übersetzungsassistent - Desktop",
@@ -343,7 +361,40 @@ TRANSLATIONS = {
         "voice_failed": "Spracheingabe fehlgeschlagen",
         "tts_error": "TTS-Fehler",
         "basic_features": "Grundfunktionen",
+        "theme_label": "Design:",
+        "theme_light": "☀️ Hell",
+        "theme_dark": "🌙 Dunkel",
     },
+}
+
+# 主题样式表定义
+THEME_STYLES = {
+    "light": {
+        "window_bg": "#f5f5f5",
+        "widget_bg": "#ffffff",
+        "text_color": "#333333",
+        "secondary_text": "#666666",
+        "border_color": "#e0e0e0",
+        "accent_color": "#4CAF50",
+        "hover_color": "#e8f5e9",
+        "input_bg": "#ffffff",
+        "button_bg": "#4CAF50",
+        "button_hover": "#45a049",
+        "button_disabled": "#cccccc",
+    },
+    "dark": {
+        "window_bg": "#1e1e1e",
+        "widget_bg": "#2d2d2d",
+        "text_color": "#e0e0e0",
+        "secondary_text": "#b0b0b0",
+        "border_color": "#3d3d3d",
+        "accent_color": "#66BB6A",
+        "hover_color": "#3d3d3d",
+        "input_bg": "#353535",
+        "button_bg": "#66BB6A",
+        "button_hover": "#5cb860",
+        "button_disabled": "#4d4d4d",
+    }
 }
 
 # Try to import text-to-speech
@@ -590,7 +641,11 @@ class TranslationApp(QMainWindow):
         super().__init__()
         self.translation_result = None
         self.current_ui_lang = "zh-CN"  # 默认界面语言
+        self.current_theme = "light"  # 默认浅色主题
         self.init_ui()
+        
+        # 应用默认主题
+        self.apply_theme()
         
         # 初始化时检查可用的 TTS 语音（可选，用于调试）
         if TTS_AVAILABLE:
@@ -690,6 +745,16 @@ class TranslationApp(QMainWindow):
         
         layout.addSpacing(20)
         
+        # 主题切换
+        self.theme_label = QLabel(self.t("theme_label"))
+        layout.addWidget(self.theme_label)
+        self.theme_combo = QComboBox()
+        layout.addWidget(self.theme_combo)
+        self.update_theme_combo_items()
+        self.theme_combo.currentIndexChanged.connect(self.change_theme)
+        
+        layout.addSpacing(20)
+        
         # 语言选择 - 先创建组合框对象
         self.source_lang_label = QLabel(self.t("source_lang"))
         layout.addWidget(self.source_lang_label)
@@ -769,6 +834,16 @@ class TranslationApp(QMainWindow):
         ])
         self.tone_combo.setCurrentIndex(current)
     
+    def update_theme_combo_items(self):
+        """更新主题选择框的选项"""
+        current_theme_index = 0 if self.current_theme == "light" else 1
+        self.theme_combo.clear()
+        self.theme_combo.addItems([
+            self.t("theme_light"),
+            self.t("theme_dark")
+        ])
+        self.theme_combo.setCurrentIndex(current_theme_index)
+    
     def change_ui_language(self, index):
         """切换界面语言"""
         lang_map = {
@@ -799,6 +874,10 @@ class TranslationApp(QMainWindow):
         self.update_lang_combo_items()
         self.update_scenario_combo_items()
         self.update_tone_combo_items()
+        self.update_theme_combo_items()
+        
+        # 更新主题标签
+        self.theme_label.setText(self.t("theme_label"))
         
         # 更新输入区域
         self.input_group_box.setTitle(self.t("input_text"))
@@ -1226,6 +1305,96 @@ class TranslationApp(QMainWindow):
         self.tts_thread = TTSThread(text, target_lang)
         self.tts_thread.error.connect(lambda msg: QMessageBox.warning(self, self.t("tts_error"), msg))
         self.tts_thread.start()
+    
+    def change_theme(self, index):
+        """切换主题"""
+        self.current_theme = "light" if index == 0 else "dark"
+        self.apply_theme()
+    
+    def apply_theme(self):
+        """应用当前主题样式"""
+        theme = THEME_STYLES[self.current_theme]
+        
+        # 设置应用程序调色板
+        palette = QPalette()
+        
+        # 窗口背景
+        palette.setColor(QPalette.ColorRole.Window, QColor(theme["window_bg"]))
+        palette.setColor(QPalette.ColorRole.WindowText, QColor(theme["text_color"]))
+        
+        # 控件背景
+        palette.setColor(QPalette.ColorRole.Base, QColor(theme["input_bg"]))
+        palette.setColor(QPalette.ColorRole.AlternateBase, QColor(theme["widget_bg"]))
+        
+        # 文本颜色
+        palette.setColor(QPalette.ColorRole.Text, QColor(theme["text_color"]))
+        palette.setColor(QPalette.ColorRole.BrightText, QColor(theme["text_color"]))
+        
+        # 按钮
+        palette.setColor(QPalette.ColorRole.Button, QColor(theme["widget_bg"]))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor(theme["text_color"]))
+        
+        # 高亮
+        palette.setColor(QPalette.ColorRole.Highlight, QColor(theme["accent_color"]))
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+        
+        self.setPalette(palette)
+        
+        # 更新翻译按钮样式
+        self.translate_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme["button_bg"]};
+                color: white;
+                padding: 10px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+            }}
+            QPushButton:hover {{
+                background-color: {theme["button_hover"]};
+            }}
+            QPushButton:disabled {{
+                background-color: {theme["button_disabled"]};
+            }}
+        """)
+        
+        # 更新进度条样式
+        self.progress_bar.setStyleSheet(f"""
+            QProgressBar {{
+                border: 2px solid {theme["border_color"]};
+                border-radius: 5px;
+                text-align: center;
+                height: 25px;
+                background-color: {theme["widget_bg"]};
+                color: {theme["text_color"]};
+            }}
+            QProgressBar::chunk {{
+                background-color: {theme["accent_color"]};
+                border-radius: 3px;
+            }}
+        """)
+        
+        # 更新文本编辑器样式
+        text_edit_style = f"""
+            QTextEdit {{
+                background-color: {theme["input_bg"]};
+                color: {theme["text_color"]};
+                border: 1px solid {theme["border_color"]};
+                border-radius: 5px;
+                padding: 5px;
+            }}
+        """
+        self.input_text.setStyleSheet(text_edit_style)
+        self.literal_text.setStyleSheet(text_edit_style)
+        self.advice_text.setStyleSheet(text_edit_style)
+        
+        # 更新状态栏样式
+        self.status_bar.setStyleSheet(f"""
+            QStatusBar {{
+                background-color: {theme["widget_bg"]};
+                color: {theme["secondary_text"]};
+            }}
+        """)
 
 
 def main():

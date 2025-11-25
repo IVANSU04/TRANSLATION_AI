@@ -2,7 +2,7 @@ import streamlit as st
 from translator_core_new import generate_translation_and_advice
 import streamlit.components.v1 as components
 import json
-import speech_recognition as sr
+import speech_recognition as sr  # 恢复使用
 import os
 
 # UI Translations
@@ -33,7 +33,7 @@ TRANSLATIONS = {
         "natural_title": "更自然的表达",
         "advice_title": "文化建议",
         "voice_input_browser": "🎤 浏览器语音",
-        "voice_input_mic": "🎙️ 麦克风录音",
+        # "voice_input_mic": "🎙️ 麦克风录音",  # 暂时注释
     },
     "en": {
         "title": "Cross-Cultural Translation Assistant (MVP)",
@@ -61,7 +61,7 @@ TRANSLATIONS = {
         "natural_title": "Natural Expressions",
         "advice_title": "Cultural Advice",
         "voice_input_browser": "🎤 Browser Voice",
-        "voice_input_mic": "🎙️ Mic Recording",
+        # "voice_input_mic": "🎙️ Mic Recording",  # 暂时注释
     },
     "ja": {
         "title": "異文化翻訳アシスタント (MVP)",
@@ -89,7 +89,7 @@ TRANSLATIONS = {
         "natural_title": "より自然な表現",
         "advice_title": "文化的アドバイス",
         "voice_input_browser": "🎤 ブラウザ音声",
-        "voice_input_mic": "🎙️ マイク録音",
+        # "voice_input_mic": "🎙️ マイク録音",  # 暂时注释
     }
 }
 
@@ -125,68 +125,293 @@ def play_text_js(text, lang):
 
 def browser_speech_recognition_js(lang_code):
     """
-    Use browser's native Web Speech API for voice input.
-    This is a client-side solution that works on all Python versions.
+    Simplified browser speech recognition with direct HTML rendering.
+    完全不依赖任何 API，使用浏览器原生功能
     """
     lang_map = {"zh": "zh-CN", "en": "en-US", "ja": "ja-JP"}
     recognition_lang = lang_map.get(lang_code, "en-US")
     
-    # Use a unique ID to store results
-    unique_id = f"speech_result_{hash(recognition_lang) % 10000}"
-    
-    js_code = f"""
-    <script>
-        (function() {{
-            try {{
-                const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-                recognition.lang = "{recognition_lang}";
-                recognition.continuous = false;
-                recognition.interimResults = false;
-                
-                recognition.onstart = function() {{
-                    console.log('Speech recognition started');
-                }};
-                
-                recognition.onresult = function(event) {{
-                    const transcript = event.results[0][0].transcript;
-                    console.log('Speech result:', transcript);
-                    
-                    // Store result in session storage for Streamlit to read
-                    sessionStorage.setItem('{unique_id}', transcript);
-                    
-                    // Try to trigger a Streamlit rerun by dispatching an event
-                    window.parent.postMessage({{
-                        type: 'streamlit:setComponentValue',
-                        value: transcript
-                    }}, '*');
-                }};
-                
-                recognition.onerror = function(event) {{
-                    console.error('Speech recognition error:', event.error);
-                    sessionStorage.setItem('{unique_id}_error', event.error);
-                }};
-                
-                recognition.onend = function() {{
-                    console.log('Speech recognition ended');
-                }};
-                
-                recognition.start();
-            }} catch (e) {{
-                console.error('Browser speech recognition not supported:', e);
-                alert('您的浏览器不支持语音识别功能。请使用 Chrome/Edge 浏览器，或使用麦克风录音功能。');
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                padding: 20px;
+                background: #f5f5f5;
             }}
-        }})();
-    </script>
-    <div style="text-align: center; padding: 10px; background: #e3f2fd; border-radius: 5px; margin: 10px 0;">
-        <p style="margin: 0; color: #1976d2;">🎤 正在监听... 请开始说话</p>
-        <p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">
-            说完后请等待几秒，然后手动点击下方文本框查看识别结果
-        </p>
-    </div>
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            .status {{
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 5px;
+                text-align: center;
+                font-weight: bold;
+            }}
+            .status.ready {{ background: #e3f2fd; color: #1976d2; }}
+            .status.listening {{ background: #e8f5e9; color: #4caf50; }}
+            .status.success {{ background: #c8e6c9; color: #2e7d32; }}
+            .status.error {{ background: #ffcdd2; color: #c62828; }}
+            
+            #volumeBar {{
+                width: 100%;
+                height: 30px;
+                background: #e0e0e0;
+                border-radius: 15px;
+                overflow: hidden;
+                margin: 15px 0;
+            }}
+            #volumeLevel {{
+                height: 100%;
+                background: linear-gradient(90deg, #4caf50, #8bc34a);
+                width: 0%;
+                transition: width 0.1s ease;
+            }}
+            
+            #resultBox {{
+                min-height: 100px;
+                padding: 15px;
+                border: 2px solid #ddd;
+                border-radius: 5px;
+                margin: 15px 0;
+                background: #fafafa;
+                word-wrap: break-word;
+                font-size: 16px;
+            }}
+            
+            .interim {{ color: #999; font-style: italic; }}
+            .final {{ color: #333; font-weight: bold; }}
+            
+            button {{
+                padding: 12px 24px;
+                margin: 5px;
+                border: none;
+                border-radius: 5px;
+                font-size: 16px;
+                cursor: pointer;
+                transition: all 0.3s;
+            }}
+            button:hover {{ transform: translateY(-2px); }}
+            .btn-start {{ background: #4caf50; color: white; }}
+            .btn-stop {{ background: #f44336; color: white; }}
+            .btn-copy {{ background: #2196f3; color: white; }}
+            button:disabled {{ background: #ccc; cursor: not-allowed; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div id="status" class="status ready">🎤 准备就绪，点击开始按钮</div>
+            
+            <div id="volumeBar">
+                <div id="volumeLevel"></div>
+            </div>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <button id="startBtn" class="btn-start" onclick="startRecognition()">🎤 开始识别</button>
+                <button id="stopBtn" class="btn-stop" onclick="stopRecognition()" disabled>⏹️ 停止</button>
+                <button id="copyBtn" class="btn-copy" onclick="copyResult()" disabled>📋 复制结果</button>
+            </div>
+            
+            <div id="resultBox">等待开始...</div>
+        </div>
+
+        <script>
+            let recognition = null;
+            let audioContext = null;
+            let analyser = null;
+            let microphone = null;
+            let animationId = null;
+            let finalTranscript = '';
+
+            console.log('Script loaded');
+
+            // 检查浏览器支持
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {{
+                document.getElementById('status').className = 'status error';
+                document.getElementById('status').textContent = '❌ 浏览器不支持语音识别';
+                document.getElementById('resultBox').textContent = '请使用 Chrome 或 Edge 浏览器';
+                document.getElementById('startBtn').disabled = true;
+            }} else {{
+                console.log('Speech recognition is supported');
+            }}
+
+            function updateStatus(message, className) {{
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = message;
+                statusDiv.className = 'status ' + className;
+                console.log('Status:', message);
+            }}
+
+            function updateVolume() {{
+                if (!analyser) return;
+                
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(dataArray);
+                
+                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                const percentage = Math.min(100, (average / 128) * 100);
+                
+                document.getElementById('volumeLevel').style.width = percentage + '%';
+                animationId = requestAnimationFrame(updateVolume);
+            }}
+
+            async function setupAudioMonitoring() {{
+                console.log('Setting up audio monitoring...');
+                try {{
+                    const stream = await navigator.mediaDevices.getUserMedia({{ audio: true }});
+                    console.log('Microphone access granted');
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    
+                    analyser.fftSize = 256;
+                    microphone.connect(analyser);
+                    
+                    updateVolume();
+                    return stream;
+                }} catch (err) {{
+                    console.error('Microphone access error:', err);
+                    updateStatus('❌ 无法访问麦克风：' + err.message, 'error');
+                    throw err;
+                }}
+            }}
+
+            async function startRecognition() {{
+                console.log('Start button clicked');
+                try {{
+                    // 设置音量监控
+                    await setupAudioMonitoring();
+                    
+                    // 初始化语音识别
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognition = new SpeechRecognition();
+                    console.log('SpeechRecognition initialized');
+                    
+                    recognition.lang = '{recognition_lang}';
+                    recognition.continuous = true;
+                    recognition.interimResults = true;
+                    
+                    finalTranscript = '';
+                    
+                    recognition.onstart = function() {{
+                        console.log('Recognition started');
+                        updateStatus('🎤 正在监听... 请说话', 'listening');
+                        document.getElementById('startBtn').disabled = true;
+                        document.getElementById('stopBtn').disabled = false;
+                        document.getElementById('resultBox').innerHTML = '<span class="interim">等待语音输入...</span>';
+                    }};
+                    
+                    recognition.onresult = function(event) {{
+                        console.log('Recognition result received');
+                        let interimTranscript = '';
+                        
+                        for (let i = event.resultIndex; i < event.results.length; i++) {{
+                            const transcript = event.results[i][0].transcript;
+                            if (event.results[i].isFinal) {{
+                                finalTranscript += transcript + ' ';
+                                console.log('Final:', transcript);
+                            }} else {{
+                                interimTranscript += transcript;
+                                console.log('Interim:', transcript);
+                            }}
+                        }}
+                        
+                        let html = '';
+                        if (finalTranscript) {{
+                            html += '<span class="final">' + finalTranscript + '</span>';
+                            updateStatus('✅ 识别中... 继续说话或点击停止', 'success');
+                            document.getElementById('copyBtn').disabled = false;
+                        }}
+                        if (interimTranscript) {{
+                            html += '<span class="interim">' + interimTranscript + '</span>';
+                        }}
+                        
+                        document.getElementById('resultBox').innerHTML = html || '<span class="interim">等待语音输入...</span>';
+                    }};
+                    
+                    recognition.onerror = function(event) {{
+                        console.error('Recognition error:', event.error);
+                        if (event.error === 'no-speech') {{
+                            updateStatus('⚠️ 未检测到语音', 'error');
+                        }} else if (event.error === 'not-allowed') {{
+                            updateStatus('❌ 麦克风权限被拒绝', 'error');
+                        }} else {{
+                            updateStatus('❌ 错误: ' + event.error, 'error');
+                        }}
+                    }};
+                    
+                    recognition.onend = function() {{
+                        console.log('Recognition ended');
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('stopBtn').disabled = true;
+                        
+                        if (finalTranscript) {{
+                            updateStatus('✅ 识别完成！点击复制结果', 'success');
+                        }} else {{
+                            updateStatus('⏸️ 已停止', 'ready');
+                        }}
+                    }};
+                    
+                    console.log('Starting recognition...');
+                    recognition.start();
+                    
+                }} catch (err) {{
+                    console.error('Start error:', err);
+                    updateStatus('❌ 启动失败: ' + err.message, 'error');
+                }}
+            }}
+
+            function stopRecognition() {{
+                console.log('Stop button clicked');
+                if (recognition) {{
+                    recognition.stop();
+                }}
+                if (animationId) {{
+                    cancelAnimationFrame(animationId);
+                }}
+                if (audioContext) {{
+                    audioContext.close();
+                }}
+                document.getElementById('volumeLevel').style.width = '0%';
+            }}
+
+            function copyResult() {{
+                console.log('Copy button clicked');
+                const text = finalTranscript.trim();
+                if (!text) {{
+                    alert('没有可复制的内容');
+                    return;
+                }}
+                
+                navigator.clipboard.writeText(text).then(function() {{
+                    console.log('Copied successfully');
+                    const btn = document.getElementById('copyBtn');
+                    btn.textContent = '✅ 已复制';
+                    setTimeout(function() {{
+                        btn.textContent = '📋 复制结果';
+                    }}, 2000);
+                    
+                    alert('识别结果已复制到剪贴板：\\n\\n' + text + '\\n\\n请粘贴到输入框中。');
+                }}.catch(function(err) {{
+                    console.error('Copy failed:', err);
+                    alert('复制失败，请手动复制：\\n\\n' + text);
+                }});
+            }}
+        </script>
+    </body>
+    </html>
     """
-    components.html(js_code, height=120)
     
-    st.info("💡 提示：浏览器语音识别结果会显示在浏览器控制台。由于技术限制，请说完后手动刷新页面或点击文本框查看结果。推荐使用麦克风录音功能获得更好的体验。")
+    components.html(html_code, height=400, scrolling=False)
 
 
 def recognize_speech_from_mic(lang_code):
@@ -303,7 +528,7 @@ def main():
     if "input_text" not in st.session_state:
         st.session_state.input_text = ""
 
-    # 1. Language Selection (Moved to top for Voice Input context)
+    # 1. Language Selection
     col1, col2 = st.columns(2)
     with col1:
         source_lang = st.selectbox(t["source_lang"], ["zh", "en", "ja"], index=0,
@@ -320,7 +545,7 @@ def main():
     
     with voice_col1:
         # Microphone Recording (traditional method)
-        if st.button(t["voice_input_mic"], key="mic_recording", use_container_width=True):
+        if st.button("🎙️ 麦克风录音", key="mic_recording", use_container_width=True):
             recognized_text = recognize_speech_from_mic(source_lang)
             if recognized_text:
                 st.session_state.input_text = recognized_text
@@ -333,7 +558,7 @@ def main():
     
     with voice_col3:
         st.caption("🎙️ 推荐使用麦克风录音 | 🎤 浏览器语音为备选方案")
-
+    
     # Text input area
     def update_input():
         st.session_state.input_text = st.session_state.widget_input
